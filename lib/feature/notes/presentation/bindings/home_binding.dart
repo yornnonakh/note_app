@@ -1,0 +1,19 @@
+import 'package:get/get.dart';
+import '../../../folders/domain/repositories/folder_repository_impl.dart';
+import '../../domain/repositories/note_repository.dart';
+import '../controllers/home_controller.dart';
+
+class HomeBinding extends Bindings {
+  @override
+  void dependencies() {
+    Get.lazyPut<HomeController>(
+          () => HomeController(
+        folderRepository:
+        Get.find<FolderRepository>(),
+        noteRepository:
+        Get.find<NoteRepository>(),
+        authRepository: Get.find(),
+      ),
+    );
+  }
+}

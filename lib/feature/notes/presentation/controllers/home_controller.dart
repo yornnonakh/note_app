@@ -18,13 +18,23 @@ class HomeController extends GetxController {
   });
 
   // ---------------------------------------------------------------------------
-  // Data
+  // Active data
   // ---------------------------------------------------------------------------
 
   final RxList<FolderEntity> folders =
       <FolderEntity>[].obs;
 
   final RxList<NoteEntity> notes =
+      <NoteEntity>[].obs;
+
+  // ---------------------------------------------------------------------------
+  // Deleted and archived data
+  // ---------------------------------------------------------------------------
+
+  final RxList<FolderEntity> deletedFolders =
+      <FolderEntity>[].obs;
+
+  final RxList<NoteEntity> archivedNotes =
       <NoteEntity>[].obs;
 
   // null means "All Notes".
@@ -45,7 +55,7 @@ class HomeController extends GetxController {
   final RxString noteErrorMessage = ''.obs;
 
   // ---------------------------------------------------------------------------
-  // Computed values
+  // Computed states
   // ---------------------------------------------------------------------------
 
   bool get isInitialLoading {
@@ -69,6 +79,40 @@ class HomeController extends GetxController {
 
   bool get hasNotes {
     return notes.isNotEmpty;
+  }
+
+  bool get hasDeletedFolders {
+    return deletedFolders.isNotEmpty;
+  }
+
+  bool get hasArchivedNotes {
+    return archivedNotes.isNotEmpty;
+  }
+
+  bool get isRecycleBinEmpty {
+    return deletedFolders.isEmpty &&
+        archivedNotes.isEmpty;
+  }
+
+  int get recycleBinItemCount {
+    return deletedFolders.length +
+        archivedNotes.length;
+  }
+
+  int get totalNoteCount {
+    if (notes.isNotEmpty) {
+      return notes.length;
+    }
+
+    return folders.fold<int>(
+      0,
+          (
+          int total,
+          FolderEntity folder,
+          ) {
+        return total + folder.noteCount;
+      },
+    );
   }
 
   FolderEntity? get selectedFolder {
@@ -96,11 +140,14 @@ class HomeController extends GetxController {
       return 'All Notes';
     }
 
-    if (folder.name.trim().isEmpty) {
+    final String folderName =
+    folder.name.trim();
+
+    if (folderName.isEmpty) {
       return 'Unnamed Folder';
     }
 
-    return folder.name;
+    return folderName;
   }
 
   int get selectedFolderNoteCount {
@@ -111,19 +158,7 @@ class HomeController extends GetxController {
       return folder.noteCount;
     }
 
-    if (notes.isNotEmpty) {
-      return notes.length;
-    }
-
-    return folders.fold<int>(
-      0,
-          (
-          int total,
-          FolderEntity currentFolder,
-          ) {
-        return total + currentFolder.noteCount;
-      },
-    );
+    return totalNoteCount;
   }
 
   List<NoteEntity> get visibleNotes {
@@ -142,7 +177,6 @@ class HomeController extends GetxController {
       ).toList();
     }
 
-    // Show pinned notes first.
     result.sort(
           (
           NoteEntity first,
@@ -172,15 +206,21 @@ class HomeController extends GetxController {
   }
 
   // ---------------------------------------------------------------------------
-  // Load data
+  // Load all data
   // ---------------------------------------------------------------------------
 
   Future<void> loadAll() async {
-    await Future.wait<void>([
-      loadFolders(),
-      loadNotes(),
-    ]);
+    await Future.wait<void>(
+      <Future<void>>[
+        loadFolders(),
+        loadNotes(),
+      ],
+    );
   }
+
+  // ---------------------------------------------------------------------------
+  // Load folders
+  // ---------------------------------------------------------------------------
 
   Future<void> loadFolders() async {
     try {
@@ -201,7 +241,45 @@ class HomeController extends GetxController {
         },
       );
 
-      folders.assignAll(result);
+      final List<FolderEntity> activeItems =
+      result.where(
+            (FolderEntity folder) {
+          return folder.deletedAt == null;
+        },
+      ).toList();
+
+      final List<FolderEntity> deletedItems =
+      result.where(
+            (FolderEntity folder) {
+          return folder.deletedAt != null;
+        },
+      ).toList();
+
+      folders.assignAll(activeItems);
+
+      /*
+       * When the API returns deleted folders, use them as
+       * the source of truth.
+       *
+       * When the API only returns active folders, preserve
+       * the local deleted-folder cache during this session.
+       */
+      if (deletedItems.isNotEmpty) {
+        deletedFolders.assignAll(
+          deletedItems,
+        );
+      } else {
+        deletedFolders.removeWhere(
+              (FolderEntity deletedFolder) {
+            return activeItems.any(
+                  (FolderEntity activeFolder) {
+                return activeFolder.id ==
+                    deletedFolder.id;
+              },
+            );
+          },
+        );
+      }
 
       _validateSelectedFolder();
     } catch (error) {
@@ -212,6 +290,10 @@ class HomeController extends GetxController {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Load notes
+  // ---------------------------------------------------------------------------
+
   Future<void> loadNotes() async {
     try {
       isNotesLoading.value = true;
@@ -220,9 +302,46 @@ class HomeController extends GetxController {
       final List<NoteEntity> result =
       await noteRepository.getNotes();
 
-      notes.assignAll(result);
+      final List<NoteEntity> activeItems =
+      result.where(
+            (NoteEntity note) {
+          return !note.isArchived;
+        },
+      ).toList();
+
+      final List<NoteEntity> archivedItems =
+      result.where(
+            (NoteEntity note) {
+          return note.isArchived;
+        },
+      ).toList();
+
+      notes.assignAll(activeItems);
+
+      /*
+       * When the API returns archived notes, use them.
+       *
+       * When it only returns active notes, preserve the local
+       * archived-note cache during the current app session.
+       */
+      if (archivedItems.isNotEmpty) {
+        archivedNotes.assignAll(
+          archivedItems,
+        );
+      } else {
+        archivedNotes.removeWhere(
+              (NoteEntity archivedNote) {
+            return activeItems.any(
+                  (NoteEntity activeNote) {
+                return activeNote.id ==
+                    archivedNote.id;
+              },
+            );
+          },
+        );
+      }
     } catch (error) {
-      // Keep existing notes when refresh fails.
+      // Keep currently displayed notes when refresh fails.
       noteErrorMessage.value =
           _cleanError(error);
     } finally {
@@ -277,27 +396,38 @@ class HomeController extends GetxController {
   // Create folder
   // ---------------------------------------------------------------------------
 
-  Future<void> createFolder({
+  Future<bool> createFolder({
     required String name,
+    String iconName = 'folder',
+    String colorValue = '#5B7CFA',
   }) async {
     final String cleanName = name.trim();
+    final String cleanIconName =
+    iconName.trim();
+    final String cleanColorValue =
+    colorValue.trim();
 
     if (cleanName.isEmpty) {
       Get.snackbar(
         'Folder name required',
         'Please enter a folder name.',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition:
+        SnackPosition.BOTTOM,
       );
 
-      return;
+      return false;
     }
 
     try {
       await folderRepository.saveFolder(
         id: 0,
         name: cleanName,
-        iconName: 'folder',
-        colorValue: '#5B7CFA',
+        iconName: cleanIconName.isEmpty
+            ? 'folder'
+            : cleanIconName,
+        colorValue: cleanColorValue.isEmpty
+            ? '#5B7CFA'
+            : cleanColorValue,
         sortOrder: folders.length + 1,
       );
 
@@ -306,14 +436,20 @@ class HomeController extends GetxController {
       Get.snackbar(
         'Folder created',
         '$cleanName was created successfully.',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition:
+        SnackPosition.BOTTOM,
       );
+
+      return true;
     } catch (error) {
       Get.snackbar(
         'Create folder failed',
         _cleanError(error),
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition:
+        SnackPosition.BOTTOM,
       );
+
+      return false;
     }
   }
 
@@ -321,7 +457,7 @@ class HomeController extends GetxController {
   // Update folder
   // ---------------------------------------------------------------------------
 
-  Future<void> updateFolder({
+  Future<bool> updateFolder({
     required FolderEntity folder,
     required String name,
     String? iconName,
@@ -334,24 +470,29 @@ class HomeController extends GetxController {
       Get.snackbar(
         'Folder name required',
         'Please enter a folder name.',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition:
+        SnackPosition.BOTTOM,
       );
 
-      return;
+      return false;
     }
 
     try {
+      final String newIconName =
+          iconName?.trim() ?? '';
+
+      final String newColorValue =
+          colorValue?.trim() ?? '';
+
       await folderRepository.saveFolder(
         id: folder.id,
         name: cleanName,
-        iconName:
-        iconName?.trim().isNotEmpty == true
-            ? iconName!.trim()
-            : folder.iconName,
-        colorValue:
-        colorValue?.trim().isNotEmpty == true
-            ? colorValue!.trim()
-            : folder.colorValue,
+        iconName: newIconName.isEmpty
+            ? folder.iconName
+            : newIconName,
+        colorValue: newColorValue.isEmpty
+            ? folder.colorValue
+            : newColorValue,
         sortOrder:
         sortOrder ?? folder.sortOrder,
       );
@@ -361,14 +502,20 @@ class HomeController extends GetxController {
       Get.snackbar(
         'Folder updated',
         '$cleanName was updated successfully.',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition:
+        SnackPosition.BOTTOM,
       );
+
+      return true;
     } catch (error) {
       Get.snackbar(
         'Update folder failed',
         _cleanError(error),
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition:
+        SnackPosition.BOTTOM,
       );
+
+      return false;
     }
   }
 
@@ -376,10 +523,24 @@ class HomeController extends GetxController {
   // Delete or restore folder
   // ---------------------------------------------------------------------------
 
-  Future<void> deleteOrRestoreFolder({
+  Future<bool> deleteOrRestoreFolder({
     required int folderId,
     required bool isDelete,
   }) async {
+    FolderEntity? folderSnapshot;
+
+    if (isDelete) {
+      folderSnapshot = _findFolderById(
+        folders,
+        folderId,
+      );
+    } else {
+      folderSnapshot = _findFolderById(
+        deletedFolders,
+        folderId,
+      );
+    }
+
     try {
       await folderRepository
           .deleteOrRestoreFolder(
@@ -387,35 +548,96 @@ class HomeController extends GetxController {
         isDelete: isDelete,
       );
 
-      if (isDelete &&
-          selectedFolderId.value ==
-              folderId) {
-        selectedFolderId.value = null;
+      if (isDelete) {
+        if (selectedFolderId.value ==
+            folderId) {
+          selectedFolderId.value = null;
+        }
+
+        folders.removeWhere(
+              (FolderEntity folder) {
+            return folder.id == folderId;
+          },
+        );
+
+        deletedFolders.removeWhere(
+              (FolderEntity folder) {
+            return folder.id == folderId;
+          },
+        );
+
+        if (folderSnapshot != null) {
+          deletedFolders.add(
+            _copyFolder(
+              folderSnapshot,
+              deletedAt: DateTime.now(),
+            ),
+          );
+        }
+      } else {
+        deletedFolders.removeWhere(
+              (FolderEntity folder) {
+            return folder.id == folderId;
+          },
+        );
+
+        if (folderSnapshot != null) {
+          folders.removeWhere(
+                (FolderEntity folder) {
+              return folder.id == folderId;
+            },
+          );
+
+          folders.add(
+            _copyFolder(
+              folderSnapshot,
+              deletedAt: null,
+            ),
+          );
+
+          folders.sort(
+                (
+                FolderEntity first,
+                FolderEntity second,
+                ) {
+              return first.sortOrder.compareTo(
+                second.sortOrder,
+              );
+            },
+          );
+        }
       }
 
-      await loadFolders();
-
-      // Reload notes because deleting a folder
-      // may change the note list.
-      await loadNotes();
+      await Future.wait<void>(
+        <Future<void>>[
+          loadFolders(),
+          loadNotes(),
+        ],
+      );
 
       Get.snackbar(
         isDelete
             ? 'Folder deleted'
             : 'Folder restored',
         isDelete
-            ? 'The folder was deleted successfully.'
+            ? 'The folder was moved to the recycle bin.'
             : 'The folder was restored successfully.',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition:
+        SnackPosition.BOTTOM,
       );
+
+      return true;
     } catch (error) {
       Get.snackbar(
         isDelete
             ? 'Delete folder failed'
             : 'Restore folder failed',
         _cleanError(error),
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition:
+        SnackPosition.BOTTOM,
       );
+
+      return false;
     }
   }
 
@@ -423,8 +645,10 @@ class HomeController extends GetxController {
   // Create note
   // ---------------------------------------------------------------------------
 
-  Future<void> createNote({
+  Future<int?> createNote({
     required String title,
+    int? folderId,
+    bool openEditor = true,
   }) async {
     final String cleanTitle =
     title.trim();
@@ -433,49 +657,90 @@ class HomeController extends GetxController {
       Get.snackbar(
         'Note title required',
         'Please enter a note title.',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition:
+        SnackPosition.BOTTOM,
       );
 
-      return;
+      return null;
     }
 
     if (folders.isEmpty) {
       Get.snackbar(
         'Folder required',
         'Create a folder before creating a note.',
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition:
+        SnackPosition.BOTTOM,
       );
 
-      return;
+      return null;
+    }
+
+    final int targetFolderId =
+        folderId ??
+            selectedFolderId.value ??
+            folders.first.id;
+
+    final bool folderExists =
+    folders.any(
+          (FolderEntity folder) {
+        return folder.id ==
+            targetFolderId;
+      },
+    );
+
+    if (!folderExists) {
+      Get.snackbar(
+        'Folder unavailable',
+        'The selected folder no longer exists.',
+        snackPosition:
+        SnackPosition.BOTTOM,
+      );
+
+      return null;
     }
 
     try {
-      final int folderId =
-          selectedFolderId.value ??
-              folders.first.id;
-
       final int noteId =
       await noteRepository.saveNote(
         noteId: 0,
-        folderId: folderId,
+        folderId: targetFolderId,
         title: cleanTitle,
       );
 
-      await Get.toNamed(
-        AppRoutes.noteEditor,
-        arguments: noteId,
+      selectedFolderId.value =
+          targetFolderId;
+
+      await Future.wait<void>(
+        <Future<void>>[
+          loadFolders(),
+          loadNotes(),
+        ],
       );
 
-      await Future.wait<void>([
-        loadFolders(),
-        loadNotes(),
-      ]);
+      if (openEditor) {
+        await Get.toNamed(
+          AppRoutes.noteEditor,
+          arguments: noteId,
+        );
+
+        await Future.wait<void>(
+          <Future<void>>[
+            loadFolders(),
+            loadNotes(),
+          ],
+        );
+      }
+
+      return noteId;
     } catch (error) {
       Get.snackbar(
         'Create note failed',
         _cleanError(error),
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition:
+        SnackPosition.BOTTOM,
       );
+
+      return null;
     }
   }
 
@@ -491,17 +756,19 @@ class HomeController extends GetxController {
       arguments: noteId,
     );
 
-    await Future.wait<void>([
-      loadNotes(),
-      loadFolders(),
-    ]);
+    await Future.wait<void>(
+      <Future<void>>[
+        loadNotes(),
+        loadFolders(),
+      ],
+    );
   }
 
   // ---------------------------------------------------------------------------
-  // Pin note
+  // Pin or unpin note
   // ---------------------------------------------------------------------------
 
-  Future<void> togglePin(
+  Future<bool> togglePin(
       NoteEntity note,
       ) async {
     try {
@@ -513,83 +780,170 @@ class HomeController extends GetxController {
       );
 
       await loadNotes();
+
+      return true;
     } catch (error) {
       Get.snackbar(
         'Update note failed',
         _cleanError(error),
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition:
+        SnackPosition.BOTTOM,
       );
+
+      return false;
     }
   }
 
   // ---------------------------------------------------------------------------
-  // Archive note
+  // Archive or restore note
   // ---------------------------------------------------------------------------
 
-  Future<void> archiveNote(
+  Future<bool> archiveNote(
       NoteEntity note,
       ) async {
+    final bool willArchive =
+    !note.isArchived;
+
     try {
       await noteRepository.updateState(
         noteId: note.id,
         isPinned: note.isPinned,
-        isArchived: !note.isArchived,
+        isArchived: willArchive,
         isLocked: note.isLocked,
       );
 
-      await loadNotes();
+      notes.removeWhere(
+            (NoteEntity currentNote) {
+          return currentNote.id ==
+              note.id;
+        },
+      );
+
+      archivedNotes.removeWhere(
+            (NoteEntity currentNote) {
+          return currentNote.id ==
+              note.id;
+        },
+      );
+
+      if (willArchive) {
+        archivedNotes.add(
+          _copyNote(
+            note,
+            isArchived: true,
+          ),
+        );
+      } else {
+        notes.add(
+          _copyNote(
+            note,
+            isArchived: false,
+          ),
+        );
+      }
+
+      await Future.wait<void>(
+        <Future<void>>[
+          loadNotes(),
+          loadFolders(),
+        ],
+      );
 
       Get.snackbar(
-        note.isArchived
-            ? 'Removed from archive'
-            : 'Note archived',
-        note.isArchived
-            ? 'The note was removed from the archive.'
-            : 'The note was archived successfully.',
-        snackPosition: SnackPosition.BOTTOM,
+        willArchive
+            ? 'Note archived'
+            : 'Note restored',
+        willArchive
+            ? 'The note was moved to the recycle bin.'
+            : 'The note was restored successfully.',
+        snackPosition:
+        SnackPosition.BOTTOM,
       );
+
+      return true;
     } catch (error) {
       Get.snackbar(
-        'Archive update failed',
+        willArchive
+            ? 'Archive note failed'
+            : 'Restore note failed',
         _cleanError(error),
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition:
+        SnackPosition.BOTTOM,
       );
+
+      return false;
     }
   }
 
   // ---------------------------------------------------------------------------
-  // Lock note
+  // Lock or unlock note
   // ---------------------------------------------------------------------------
 
-  Future<void> lockNote(
+  Future<bool> lockNote(
       NoteEntity note,
       ) async {
+    final bool willLock =
+    !note.isLocked;
+
     try {
       await noteRepository.updateState(
         noteId: note.id,
         isPinned: note.isPinned,
         isArchived: note.isArchived,
-        isLocked: !note.isLocked,
+        isLocked: willLock,
       );
 
       await loadNotes();
 
       Get.snackbar(
-        note.isLocked
-            ? 'Note unlocked'
-            : 'Note locked',
-        note.isLocked
-            ? 'The note was unlocked successfully.'
-            : 'The note was locked successfully.',
-        snackPosition: SnackPosition.BOTTOM,
+        willLock
+            ? 'Note locked'
+            : 'Note unlocked',
+        willLock
+            ? 'The note was locked successfully.'
+            : 'The note was unlocked successfully.',
+        snackPosition:
+        SnackPosition.BOTTOM,
       );
+
+      return true;
     } catch (error) {
       Get.snackbar(
         'Lock update failed',
         _cleanError(error),
-        snackPosition: SnackPosition.BOTTOM,
+        snackPosition:
+        SnackPosition.BOTTOM,
       );
+
+      return false;
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Recycle bin
+  // ---------------------------------------------------------------------------
+
+  Future<void> refreshRecycleBin() async {
+    await loadAll();
+  }
+
+  Future<bool> restoreFolder(
+      FolderEntity folder,
+      ) {
+    return deleteOrRestoreFolder(
+      folderId: folder.id,
+      isDelete: false,
+    );
+  }
+
+  Future<bool> restoreNote(
+      NoteEntity note,
+      ) {
+    if (!note.isArchived) {
+      return Future<bool>.value(false);
+    }
+
+    return archiveNote(note);
   }
 
   // ---------------------------------------------------------------------------
@@ -600,6 +954,13 @@ class HomeController extends GetxController {
     try {
       await authRepository.logout();
     } finally {
+      folders.clear();
+      notes.clear();
+      deletedFolders.clear();
+      archivedNotes.clear();
+
+      selectedFolderId.value = null;
+
       Get.offAllNamed(
         AppRoutes.login,
       );
@@ -609,6 +970,58 @@ class HomeController extends GetxController {
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
+
+  FolderEntity? _findFolderById(
+      Iterable<FolderEntity> source,
+      int folderId,
+      ) {
+    for (final FolderEntity folder
+    in source) {
+      if (folder.id == folderId) {
+        return folder;
+      }
+    }
+
+    return null;
+  }
+
+  FolderEntity _copyFolder(
+      FolderEntity folder, {
+        required DateTime? deletedAt,
+      }) {
+    return FolderEntity(
+      id: folder.id,
+      userId: folder.userId,
+      name: folder.name,
+      iconName: folder.iconName,
+      colorValue: folder.colorValue,
+      sortOrder: folder.sortOrder,
+      noteCount: folder.noteCount,
+      createdAt: folder.createdAt,
+      updatedAt: folder.updatedAt,
+      deletedAt: deletedAt,
+    );
+  }
+
+  NoteEntity _copyNote(
+      NoteEntity note, {
+        bool? isPinned,
+        bool? isArchived,
+        bool? isLocked,
+      }) {
+    return NoteEntity(
+      id: note.id,
+      folderId: note.folderId,
+      title: note.title,
+      content: note.content,
+      isPinned:
+      isPinned ?? note.isPinned,
+      isArchived:
+      isArchived ?? note.isArchived,
+      isLocked:
+      isLocked ?? note.isLocked,
+    );
+  }
 
   String _cleanError(
       Object error,

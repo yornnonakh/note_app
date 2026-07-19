@@ -6,7 +6,7 @@ import '../../feature/notes/presentation/bindings/home_binding.dart';
 import '../../feature/notes/presentation/bindings/note_editor_binding.dart';
 import '../../feature/notes/presentation/view/home_view.dart';
 import '../../feature/notes/presentation/view/note_editor_view.dart';
-import '../constrollers/splash_constrollers.dart';
+import '../controllers/splash_controllers.dart';
 import '../views/splash_views.dart';
 import 'app_routes.dart';
 

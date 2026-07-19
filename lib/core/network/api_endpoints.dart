@@ -2,24 +2,30 @@ abstract final class ApiEndpoints {
   // Authentication
   static const String login = '/api/auth/login';
 
-  // Confirm this endpoint with the backend before enabling registration.
+  // Confirm this endpoint with your backend.
   static const String register = '/api/auth/register';
 
-  // Folders
+  // Folder
   static const String folders = '/api/folder';
-  static const String saveFolder = '/api/folder/save';
+
+  static const String saveFolder =
+      '/api/folder/save';
+
   static const String deleteRestoreFolder =
       '/api/folder/delete-restore';
 
-  // Notes
+  // Note
   static const String notes = '/api/note';
-  static const String saveNote = '/api/note/save';
+
+  static const String saveNote =
+      '/api/note/save';
+
   static const String saveNoteContent =
       '/api/note/save-content';
+
   static const String uploadAttachment =
       '/api/note/attachment';
 
-  /// The uploaded Postman collection uses update-state.
   static const String updateNoteState =
       '/api/note/update-state';
 

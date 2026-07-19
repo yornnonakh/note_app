@@ -1,4 +1,4 @@
-import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
@@ -6,6 +6,7 @@ import '../../../../core/network/api_parser.dart';
 import '../../domain/entities/folder_entity.dart';
 import '../../domain/repositories/folder_repository_impl.dart';
 import '../models/folder_model.dart';
+
 
 class FolderRepositoryImpl implements FolderRepository {
   final ApiClient apiClient;
@@ -20,15 +21,22 @@ class FolderRepositoryImpl implements FolderRepository {
       ApiEndpoints.folders,
     );
 
-    debugPrint('FOLDER API RESPONSE: $response');
+    debugPrint(
+      'FOLDER API RESPONSE: $response',
+    );
 
-    final List<Map<String, dynamic>> items =
+    final List<Map<String, dynamic>> folderJsonList =
     ApiParser.asList(response);
 
-    return items
-        .map(FolderModel.fromJson)
+    return folderJsonList
+        .map(
+          (Map<String, dynamic> json) {
+        return FolderModel.fromJson(json);
+      },
+    )
         .toList();
   }
+
   @override
   Future<void> saveFolder({
     required int id,
@@ -37,15 +45,21 @@ class FolderRepositoryImpl implements FolderRepository {
     required String colorValue,
     required int sortOrder,
   }) async {
-    await apiClient.post(
+    final Map<String, dynamic> requestBody = {
+      'id': id,
+      'name': name.trim(),
+      'iconName': iconName.trim(),
+      'colorValue': colorValue.trim(),
+      'sortOrder': sortOrder,
+    };
+
+    final dynamic response = await apiClient.post(
       ApiEndpoints.saveFolder,
-      body: {
-        'id': id,
-        'name': name,
-        'iconName': iconName,
-        'colorValue': colorValue,
-        'sortOrder': sortOrder,
-      },
+      body: requestBody,
+    );
+
+    debugPrint(
+      'SAVE FOLDER API RESPONSE: $response',
     );
   }
 
@@ -54,12 +68,18 @@ class FolderRepositoryImpl implements FolderRepository {
     required int id,
     required bool isDelete,
   }) async {
-    await apiClient.post(
+    final Map<String, dynamic> requestBody = {
+      'id': id,
+      'isDelete': isDelete,
+    };
+
+    final dynamic response = await apiClient.post(
       ApiEndpoints.deleteRestoreFolder,
-      body: {
-        'id': id,
-        'isDelete': isDelete,
-      },
+      body: requestBody,
+    );
+
+    debugPrint(
+      'DELETE OR RESTORE FOLDER RESPONSE: $response',
     );
   }
 }

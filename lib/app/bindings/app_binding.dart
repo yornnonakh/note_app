@@ -8,6 +8,7 @@ import '../../feature/folders/domain/repositories/folder_repository_impl.dart';
 import '../../feature/notes/data/repositories/note_repository_impl.dart';
 import '../../feature/notes/domain/repositories/note_repository.dart';
 
+
 class AppBinding extends Bindings {
   @override
   void dependencies() {

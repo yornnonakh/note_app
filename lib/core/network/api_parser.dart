@@ -2,25 +2,55 @@ import 'api_exception.dart';
 
 abstract final class ApiParser {
   static dynamic unwrapData(dynamic response) {
-    if (response is Map) {
-      if (response.containsKey('data')) {
-        return response['data'];
+    dynamic current = response;
+
+    while (current is Map) {
+      if (current.containsKey('data')) {
+        current = current['data'];
+        continue;
       }
 
-      if (response.containsKey('result')) {
-        return response['result'];
+      if (current.containsKey('result')) {
+        current = current['result'];
+        continue;
       }
+
+      break;
     }
 
-    return response;
+    return current;
+  }
+
+  static List<Map<String, dynamic>> asList(
+      dynamic response,
+      ) {
+    final List<dynamic>? list = _findList(response);
+
+    if (list == null) {
+      throw ApiException(
+        message:
+        'The API response does not contain a list.',
+        responseData: response,
+      );
+    }
+
+    return list
+        .whereType<Map>()
+        .map(
+          (Map<dynamic, dynamic> item) =>
+      Map<String, dynamic>.from(item),
+    )
+        .toList();
   }
 
   static Map<String, dynamic> asMap(
       dynamic response, {
         bool unwrap = true,
       }) {
-    final dynamic value =
+    dynamic value =
     unwrap ? unwrapData(response) : response;
+
+    value = _findObject(value);
 
     if (value is Map) {
       return Map<String, dynamic>.from(value);
@@ -28,31 +58,9 @@ abstract final class ApiParser {
 
     throw ApiException(
       message:
-      'Expected an object but received ${value.runtimeType}.',
+      'The API response does not contain an object.',
       responseData: response,
     );
-  }
-
-  static List<Map<String, dynamic>> asList(
-      dynamic response,
-      ) {
-    final List<dynamic>? foundList = _findList(response);
-
-    if (foundList == null) {
-      throw ApiException(
-        message:
-        'Expected a list but received ${response.runtimeType}.',
-        responseData: response,
-      );
-    }
-
-    return foundList
-        .whereType<Map>()
-        .map(
-          (Map<dynamic, dynamic> item) =>
-      Map<String, dynamic>.from(item),
-    )
-        .toList();
   }
 
   static List<dynamic>? _findList(dynamic value) {
@@ -66,14 +74,16 @@ abstract final class ApiParser {
 
     const List<String> preferredKeys = [
       'data',
+      'folder',
+      'folders',
+      'note',
+      'notes',
       'items',
       'records',
       'rows',
       'results',
       'result',
       'list',
-      'folders',
-      'notes',
       'content',
     ];
 
@@ -102,12 +112,40 @@ abstract final class ApiParser {
     return null;
   }
 
+  static dynamic _findObject(dynamic value) {
+    if (value is! Map) {
+      return value;
+    }
+
+    const List<String> objectKeys = [
+      'note',
+      'folder',
+      'item',
+      'record',
+      'result',
+    ];
+
+    for (final String key in objectKeys) {
+      final dynamic nested = value[key];
+
+      if (nested is Map) {
+        return _findObject(nested);
+      }
+    }
+
+    return value;
+  }
+
   static int readId(
       dynamic response, {
         List<String> keys = const [
+          'Id',
           'id',
+          'NoteId',
           'noteId',
+          'FolderId',
           'folderId',
+          'AttachmentId',
           'attachmentId',
         ],
       }) {
@@ -118,7 +156,8 @@ abstract final class ApiParser {
 
     if (id == null) {
       throw ApiException(
-        message: 'The API response does not contain an ID.',
+        message:
+        'The API response does not contain an ID.',
         responseData: response,
       );
     }
@@ -141,8 +180,13 @@ abstract final class ApiParser {
         return rawValue;
       }
 
-      final int? parsed =
-      int.tryParse(rawValue?.toString() ?? '');
+      if (rawValue is num) {
+        return rawValue.toInt();
+      }
+
+      final int? parsed = int.tryParse(
+        rawValue?.toString() ?? '',
+      );
 
       if (parsed != null) {
         return parsed;
@@ -150,15 +194,13 @@ abstract final class ApiParser {
     }
 
     for (final dynamic nestedValue in value.values) {
-      if (nestedValue is Map) {
-        final int? result = _findId(
-          nestedValue,
-          keys: keys,
-        );
+      final int? result = _findId(
+        nestedValue,
+        keys: keys,
+      );
 
-        if (result != null) {
-          return result;
-        }
+      if (result != null) {
+        return result;
       }
     }
 

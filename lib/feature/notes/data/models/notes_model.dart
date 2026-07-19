@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import '../../domain/entities/note_entity.dart';
 
 class NoteModel extends NoteEntity {
@@ -18,40 +17,79 @@ class NoteModel extends NoteEntity {
       ) {
     return NoteModel(
       id: _toInt(
-        json['id'] ?? json['noteId'],
+        json['NoteId'] ??
+            json['noteId'] ??
+            json['Id'] ??
+            json['id'],
       ),
-      folderId: _toInt(json['folderId']),
-      title: json['title']?.toString() ?? '',
-      content: _parseContent(json['content']),
-      isPinned: _toBool(json['isPinned']),
-      isArchived: _toBool(json['isArchived']),
-      isLocked: _toBool(json['isLocked']),
+      folderId: _toInt(
+        json['FolderId'] ??
+            json['folderId'],
+      ),
+      title: _toString(
+        json['Title'] ??
+            json['title'],
+      ),
+      content: _parseContent(json),
+      isPinned: _toBool(
+        json['IsPinned'] ??
+            json['isPinned'],
+      ),
+      isArchived: _toBool(
+        json['IsArchived'] ??
+            json['isArchived'],
+      ),
+      isLocked: _toBool(
+        json['IsLocked'] ??
+            json['isLocked'],
+      ),
     );
   }
 
   static List<Map<String, dynamic>> _parseContent(
-      dynamic value,
+      Map<String, dynamic> json,
       ) {
-    dynamic decodedValue = value;
+    dynamic value =
+        json['Content'] ??
+            json['content'];
 
-    if (value is String && value.trim().isNotEmpty) {
+    if (value is String &&
+        value.trim().isNotEmpty) {
       try {
-        decodedValue = jsonDecode(value);
+        value = jsonDecode(value);
       } catch (_) {
-        return <Map<String, dynamic>>[];
+        value = null;
       }
     }
 
-    if (decodedValue is! List) {
+    if (value is List) {
+      return value
+          .whereType<Map>()
+          .map(
+            (Map<dynamic, dynamic> item) =>
+        Map<String, dynamic>.from(item),
+      )
+          .toList();
+    }
+
+    final String preview = _toString(
+      json['PreviewText'] ??
+          json['previewText'] ??
+          json['PlainText'] ??
+          json['plainText'],
+    );
+
+    if (preview.isEmpty) {
       return <Map<String, dynamic>>[];
     }
 
-    return decodedValue
-        .whereType<Map>()
-        .map(
-          (Map item) => Map<String, dynamic>.from(item),
-    )
-        .toList();
+    return [
+      {
+        'id': 'preview',
+        'type': 'text',
+        'text': preview,
+      },
+    ];
   }
 
   static int _toInt(dynamic value) {
@@ -59,7 +97,18 @@ class NoteModel extends NoteEntity {
       return value;
     }
 
-    return int.tryParse(value?.toString() ?? '') ?? 0;
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse(
+      value?.toString() ?? '',
+    ) ??
+        0;
+  }
+
+  static String _toString(dynamic value) {
+    return value?.toString() ?? '';
   }
 
   static bool _toBool(dynamic value) {

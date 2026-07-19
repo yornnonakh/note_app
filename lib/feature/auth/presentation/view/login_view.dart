@@ -53,21 +53,19 @@ class LoginView extends GetView<LoginController> {
                           CrossAxisAlignment
                               .stretch,
                           children: <Widget>[
-                            const AuthBrandHeaderWidgets(
-                              icon: CupertinoIcons
-                                  .doc_text_fill,
-                              title: 'Piisiit Note',
-                              subtitle: 'Welcome back',
-                              description:
-                              'Sign in to access and manage your notes.',
-                            ),
+                        AuthBrandHeaderWidgets(
+                        imagePath:
+                        'assets/images/piisiit_note_logo.png',
+                          title: 'piisiit_note'.tr,
+                          subtitle: 'welcome_back'.tr,
+                          description: 'sign_in_description'.tr,
+                        ),
                             const SizedBox(height: 32),
                             AuthTextFieldWidget(
                               controller: controller
                                   .phoneController,
-                              label: 'Phone number',
-                              hintText:
-                              'Enter your phone number',
+                              label: 'phone_number'.tr,
+                              hintText: 'enter_phone_number'.tr,
                               icon:
                               CupertinoIcons.phone,
                               keyboardType:
@@ -182,7 +180,7 @@ class LoginView extends GetView<LoginController> {
                             const SizedBox(height: 20),
                             Obx(
                                   () => AuthPrimaryButtonWidget(
-                                label: 'Sign In',
+                                    label: 'sign_in'.tr,
                                 isLoading: controller
                                     .isLoading.value,
                                 onPressed:
@@ -229,7 +227,7 @@ class _CreateAccountLink
       mainAxisAlignment: MainAxisAlignment.center,
       children: <Widget>[
         Text(
-          'Don’t have an account?',
+          'Don’t have an account?'.tr,
           style: theme.textTheme.bodyMedium
               ?.copyWith(
             color: colorScheme.onSurfaceVariant,
@@ -240,7 +238,7 @@ class _CreateAccountLink
           const EdgeInsets.only(left: 6),
           onPressed: onPressed,
           child: Text(
-            'Create Account',
+            'Create Account'.tr,
             style: theme.textTheme.bodyMedium
                 ?.copyWith(
               color: colorScheme.primary,

@@ -1,69 +1,89 @@
 import 'package:flutter/material.dart';
 
 class AuthBrandHeaderWidgets extends StatelessWidget {
-  final IconData icon;
+  final String imagePath;
   final String title;
   final String subtitle;
   final String description;
+  final double imageSize;
 
   const AuthBrandHeaderWidgets({
     super.key,
-    required this.icon,
+    required this.imagePath,
     required this.title,
     required this.subtitle,
     required this.description,
+    this.imageSize = 82,
   });
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final ColorScheme colorScheme =
-        theme.colorScheme;
+    final ColorScheme colorScheme = theme.colorScheme;
+    final bool isDark =
+        theme.brightness == Brightness.dark;
 
     return Column(
-      children: <Widget>[
+      children: [
         Container(
-          width: 80,
-          height: 80,
+          width: imageSize,
+          height: imageSize,
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
+            color: isDark
+                ? const Color(0xFF1B1D22)
+                : Colors.white,
             borderRadius: BorderRadius.circular(26),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: <Color>[
-                colorScheme.primary,
-                colorScheme.primary.withValues(
-                  alpha: 0.72,
-                ),
-              ],
-            ),
             border: Border.all(
-              color: Colors.white.withValues(
-                alpha: 0.32,
+              color: colorScheme.outlineVariant.withValues(
+                alpha: isDark ? 0.22 : 0.40,
               ),
             ),
-            boxShadow: <BoxShadow>[
+            boxShadow: [
               BoxShadow(
                 color: colorScheme.primary.withValues(
-                  alpha: 0.30,
+                  alpha: isDark ? 0.22 : 0.18,
                 ),
-                blurRadius: 24,
+                blurRadius: 26,
                 offset: const Offset(0, 10),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(
+                  alpha: isDark ? 0.20 : 0.06,
+                ),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
-          child: Icon(
-            icon,
-            size: 38,
-            color: colorScheme.onPrimary,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: Image.asset(
+              imagePath,
+              width: double.infinity,
+              height: double.infinity,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+              errorBuilder: (
+                  BuildContext context,
+                  Object error,
+                  StackTrace? stackTrace,
+                  ) {
+                return Icon(
+                  Icons.note_alt_rounded,
+                  size: imageSize * 0.48,
+                  color: colorScheme.primary,
+                );
+              },
+            ),
           ),
         ),
-        const SizedBox(height: 21),
+        const SizedBox(height: 22),
         Text(
           title,
           textAlign: TextAlign.center,
-          style: theme.textTheme.headlineMedium
-              ?.copyWith(
+          style: theme.textTheme.headlineMedium?.copyWith(
+            color: colorScheme.onSurface,
             fontWeight: FontWeight.w800,
             letterSpacing: -0.8,
           ),
@@ -72,8 +92,8 @@ class AuthBrandHeaderWidgets extends StatelessWidget {
         Text(
           subtitle,
           textAlign: TextAlign.center,
-          style: theme.textTheme.titleMedium
-              ?.copyWith(
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: colorScheme.onSurface,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -81,8 +101,7 @@ class AuthBrandHeaderWidgets extends StatelessWidget {
         Text(
           description,
           textAlign: TextAlign.center,
-          style: theme.textTheme.bodyMedium
-              ?.copyWith(
+          style: theme.textTheme.bodyMedium?.copyWith(
             color: colorScheme.onSurfaceVariant,
             height: 1.45,
           ),

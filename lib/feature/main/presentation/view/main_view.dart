@@ -4,8 +4,8 @@ import 'package:note_app/feature/main/presentation/widgets/liquid_bottom_navigat
 import '../../../folders/presentation/view/folder_list_view.dart';
 import '../../../notes/presentation/view/note_list_view.dart';
 import '../../../profile/presentation/views/profile_view.dart';
+import '../../../settings/view/settings_view.dart';
 import '../controller/main_navigation_controller.dart';
-
 
 class MainView
     extends GetView<MainNavigationController> {
@@ -18,6 +18,7 @@ class MainView
     const List<Widget> screens = <Widget>[
       FolderListView(),
       NoteListView(),
+      SettingsView(),
       ProfileView(),
     ];
 

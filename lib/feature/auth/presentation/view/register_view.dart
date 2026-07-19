@@ -60,17 +60,13 @@ class RegisterView
                                 CrossAxisAlignment
                                     .stretch,
                                 children: <Widget>[
-                                  const AuthBrandHeaderWidgets(
-                                    icon:
-                                    CupertinoIcons
-                                        .person_add,
-                                    title:
-                                    'Create Account',
-                                    subtitle:
-                                    'Join Piisiit Note',
-                                    description:
-                                    'Create your account and keep your notes available across your devices.',
-                                  ),
+                              AuthBrandHeaderWidgets(
+                              imagePath:
+                              'assets/images/piisiit_note_logo.png',
+                                title: 'piisiit_note'.tr,
+                                subtitle: 'welcome_back'.tr,
+                                description: 'sign_in_description'.tr,
+                              ),
                                   const SizedBox(
                                     height: 30,
                                   ),
@@ -100,10 +96,8 @@ class RegisterView
                                   AuthTextFieldWidget(
                                     controller: controller
                                         .phoneController,
-                                    label:
-                                    'Phone number',
-                                    hintText:
-                                    'Enter your phone number',
+                                    label: 'phone_number'.tr,
+                                    hintText: 'enter_phone_number'.tr,
                                     icon:
                                     CupertinoIcons
                                         .phone,

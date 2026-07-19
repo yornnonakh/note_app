@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 class LiquidBottomNavigationWidget
     extends StatelessWidget {
@@ -16,16 +17,17 @@ class LiquidBottomNavigationWidget
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final ColorScheme colorScheme = theme.colorScheme;
+    final ColorScheme colorScheme =
+        theme.colorScheme;
 
     final bool isDark =
         theme.brightness == Brightness.dark;
 
     final Color backgroundColor = isDark
         ? const Color(0xFF1B1D22).withValues(
-      alpha: 0.84,
+      alpha: 0.86,
     )
-        : Colors.white.withValues(alpha: 0.78);
+        : Colors.white.withValues(alpha: 0.80);
 
     return SafeArea(
       top: false,
@@ -44,7 +46,7 @@ class LiquidBottomNavigationWidget
           ),
           child: Container(
             height: 72,
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(7),
             decoration: BoxDecoration(
               color: backgroundColor,
               borderRadius:
@@ -71,9 +73,8 @@ class LiquidBottomNavigationWidget
                 Expanded(
                   child: _NavigationItem(
                     index: 0,
-                    label: 'Folders',
-                    icon:
-                    CupertinoIcons.folder,
+                    label: 'folders'.tr,
+                    icon: CupertinoIcons.folder,
                     selectedIcon:
                     CupertinoIcons.folder_fill,
                     selectedIndex: selectedIndex,
@@ -83,9 +84,8 @@ class LiquidBottomNavigationWidget
                 Expanded(
                   child: _NavigationItem(
                     index: 1,
-                    label: 'Notes',
-                    icon:
-                    CupertinoIcons.doc_text,
+                    label: 'notes'.tr,
+                    icon: CupertinoIcons.doc_text,
                     selectedIcon:
                     CupertinoIcons.doc_text_fill,
                     selectedIndex: selectedIndex,
@@ -95,9 +95,19 @@ class LiquidBottomNavigationWidget
                 Expanded(
                   child: _NavigationItem(
                     index: 2,
-                    label: 'Profile',
-                    icon:
-                    CupertinoIcons.person,
+                    label: 'settings'.tr,
+                    icon: CupertinoIcons.gear,
+                    selectedIcon:
+                    CupertinoIcons.gear,
+                    selectedIndex: selectedIndex,
+                    onChanged: onChanged,
+                  ),
+                ),
+                Expanded(
+                  child: _NavigationItem(
+                    index: 3,
+                    label: 'profile'.tr,
+                    icon: CupertinoIcons.person,
                     selectedIcon:
                     CupertinoIcons.person_fill,
                     selectedIndex: selectedIndex,
@@ -133,7 +143,8 @@ class _NavigationItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final ColorScheme colorScheme = theme.colorScheme;
+    final ColorScheme colorScheme =
+        theme.colorScheme;
 
     final bool selected =
         index == selectedIndex;
@@ -147,17 +158,17 @@ class _NavigationItem extends StatelessWidget {
         duration:
         const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
-        height: 56,
-        margin:
-        const EdgeInsets.symmetric(horizontal: 3),
+        height: 57,
+        margin: const EdgeInsets.symmetric(
+          horizontal: 2,
+        ),
         decoration: BoxDecoration(
           color: selected
               ? colorScheme.primary.withValues(
             alpha: 0.14,
           )
               : Colors.transparent,
-          borderRadius:
-          BorderRadius.circular(21),
+          borderRadius: BorderRadius.circular(21),
         ),
         child: Column(
           mainAxisAlignment:
@@ -171,7 +182,7 @@ class _NavigationItem extends StatelessWidget {
                     ? selectedIcon
                     : icon,
                 key: ValueKey<bool>(selected),
-                size: 22,
+                size: 21,
                 color: selected
                     ? colorScheme.primary
                     : colorScheme
@@ -181,8 +192,11 @@ class _NavigationItem extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style:
               theme.textTheme.labelSmall?.copyWith(
+                fontSize: 10,
                 color: selected
                     ? colorScheme.primary
                     : colorScheme

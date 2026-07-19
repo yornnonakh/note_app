@@ -34,7 +34,7 @@ class FolderListView
                 ),
                 child: Obx(
                       () => MainTabHeaderWidget(
-                    title: 'Folders',
+                    title: 'Folders'.tr,
                     subtitle:
                     '${controller.folders.length} folders',
                     onRefresh:

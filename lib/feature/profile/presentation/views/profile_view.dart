@@ -31,7 +31,7 @@ class ProfileView
                   0,
                 ),
                 child: MainTabHeaderWidget(
-                  title: 'Profile',
+                  title: 'Profile'.tr,
                   subtitle:
                   'Account and application settings',
                   onRefresh: controller.loadAll,

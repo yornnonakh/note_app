@@ -4,6 +4,14 @@ abstract class AuthRepository {
     required String password,
   });
 
+  Future<void> register({
+    required String fullName,
+    required String phone,
+    required String password,
+    required String deviceName,
+    required String deviceType,
+  });
+
   Future<void> logout();
 
   Future<bool> isLoggedIn();

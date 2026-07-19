@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../folders/domain/entities/folder_entity.dart';
 import '../../controllers/home_controller.dart';
-import 'home_color_utils.dart';
+import 'home_color_utils_widget.dart';
 
 class HomeFolderStrip
     extends GetView<HomeController> {

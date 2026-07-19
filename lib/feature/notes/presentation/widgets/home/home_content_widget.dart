@@ -3,8 +3,8 @@ import 'package:get/get.dart';
 import '../../../../folders/domain/entities/folder_entity.dart';
 import '../../../domain/entities/note_entity.dart';
 import '../../controllers/home_controller.dart';
-import 'home_states.dart';
-import 'liquid_note_card.dart';
+import 'home_states_widget.dart';
+import 'liquid_note_card_widget.dart';
 
 class HomeContent extends GetView<HomeController> {
   final VoidCallback onCreateFolder;

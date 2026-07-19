@@ -2,7 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../controllers/home_controller.dart';
-import 'glass_surface.dart';
+import 'glass_surface_widget.dart';
 
 class HomeBottomBar
     extends GetView<HomeController> {

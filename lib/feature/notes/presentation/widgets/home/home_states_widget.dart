@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'glass_surface.dart';
+import 'glass_surface_widget.dart';
 
 class HomeServerErrorState
     extends StatelessWidget {

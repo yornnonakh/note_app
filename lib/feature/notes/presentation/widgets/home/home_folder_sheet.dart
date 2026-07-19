@@ -1,8 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../../../../folders/domain/entities/folder_entity.dart';
-import 'glass_surface.dart';
-import 'home_color_utils.dart';
+import 'glass_surface_widget.dart';
+import 'home_color_utils_widget.dart';
 
 class HomeFolderSheet extends StatelessWidget {
   final List<FolderEntity> folders;

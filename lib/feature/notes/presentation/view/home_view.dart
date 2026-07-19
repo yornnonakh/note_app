@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../controllers/home_controller.dart';
-import '../widgets/home/home_bottom_bar.dart';
-import '../widgets/home/home_content.dart';
-import '../widgets/home/home_folder_strip.dart';
-import '../widgets/home/home_header.dart';
-import '../widgets/home/home_overlays.dart';
-import '../widgets/home/liquid_background.dart';
+import '../widgets/home/home_bottom_bar_widget.dart';
+import '../widgets/home/home_content_widget.dart';
+import '../widgets/home/home_folder_strip_widget.dart';
+import '../widgets/home/home_header_widget.dart';
+import '../widgets/home/home_overlays_widget.dart';
+import '../widgets/home/liquid_background_widget.dart';
 
 class HomeView extends GetView<HomeController> {
   const HomeView({super.key});

@@ -1,23 +1,23 @@
 import 'package:get/get.dart';
-
+import 'package:note_app/feature/main/presentation/view/main_view.dart';
 import '../../feature/auth/presentation/binding/login_binding.dart';
+import '../../feature/auth/presentation/binding/register_binding.dart';
 import '../../feature/auth/presentation/view/login_view.dart';
+import '../../feature/auth/presentation/view/register_view.dart';
 import '../../feature/notes/presentation/bindings/home_binding.dart';
 import '../../feature/notes/presentation/bindings/note_editor_binding.dart';
-import '../../feature/notes/presentation/view/home_view.dart';
 import '../../feature/notes/presentation/view/note_editor_view.dart';
 import '../controllers/splash_controllers.dart';
 import '../views/splash_views.dart';
 import 'app_routes.dart';
 
 abstract final class AppPages {
-  static final List<GetPage<dynamic>> pages = [
-    GetPage(
+  static final List<GetPage<dynamic>> pages =
+  <GetPage<dynamic>>[
+    GetPage<dynamic>(
       name: AppRoutes.splash,
       page: () => const SplashView(),
       binding: BindingsBuilder(() {
-        // Use Get.put instead of Get.lazyPut.
-        // This immediately creates SplashController.
         Get.put<SplashController>(
           SplashController(
             authRepository: Get.find(),
@@ -25,17 +25,22 @@ abstract final class AppPages {
         );
       }),
     ),
-    GetPage(
+    GetPage<dynamic>(
       name: AppRoutes.login,
       page: () => const LoginView(),
       binding: LoginBinding(),
     ),
-    GetPage(
+    GetPage<dynamic>(
+      name: AppRoutes.register,
+      page: () => const RegisterView(),
+      binding: RegisterBinding(),
+    ),
+    GetPage<dynamic>(
       name: AppRoutes.home,
-      page: () => const HomeView(),
+      page: () => const MainView(),
       binding: HomeBinding(),
     ),
-    GetPage(
+    GetPage<dynamic>(
       name: AppRoutes.noteEditor,
       page: () => const NoteEditorView(),
       binding: NoteEditorBinding(),

@@ -49,7 +49,7 @@ class ApiClient {
 
   Future<dynamic> post(
       String path, {
-        Map<String, dynamic>? body,
+        dynamic body,
         bool requiresAuth = true,
         bool useAuthBaseUrl = false,
       }) async {

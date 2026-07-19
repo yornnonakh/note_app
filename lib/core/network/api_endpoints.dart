@@ -1,8 +1,6 @@
 abstract final class ApiEndpoints {
   // Authentication
   static const String login = '/api/auth/login';
-
-  // Confirm this route with your backend developer.
   static const String register = '/api/auth/register';
 
   // Folders
@@ -12,14 +10,18 @@ abstract final class ApiEndpoints {
       '/api/folder/delete-restore';
 
   // Notes
-  static const String notes = '/api/note';
-  static const String saveNote = '/api/note/save';
-  static const String saveNoteContent =
+  static const String notes =
+      '/api/note';
+
+  static const String saveNote =
+      '/api/note/save';
+
+  static const String saveContent =
       '/api/note/save-content';
-  static const String uploadAttachment =
+
+  static const String noteAttachment =
       '/api/note/attachment';
 
-  // Change to /api/note/state when confirmed by backend.
   static const String updateNoteState =
       '/api/note/update-state';
 

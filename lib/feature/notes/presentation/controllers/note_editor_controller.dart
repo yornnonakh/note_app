@@ -1,32 +1,32 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../domain/entities/note_entity.dart';
 import '../../domain/repositories/note_repository.dart';
+import 'home_controller.dart';
 
 class NoteEditorController extends GetxController {
   final NoteRepository noteRepository;
+  final HomeController? homeController;
 
   NoteEditorController({
     required this.noteRepository,
+    this.homeController,
   });
 
   final TextEditingController titleController =
   TextEditingController();
 
-  final TextEditingController textController =
+  final TextEditingController statementController =
   TextEditingController();
 
-  final RxList<Map<String, dynamic>> blocks =
-      <Map<String, dynamic>>[].obs;
+  final Rxn<NoteEntity> note =
+  Rxn<NoteEntity>();
 
   final RxBool isLoading = false.obs;
   final RxBool isSaving = false.obs;
-  final RxString errorMessage = ''.obs;
 
-  final Uuid _uuid = const Uuid();
+  final RxString errorMessage = ''.obs;
 
   late final int noteId;
 
@@ -34,178 +34,316 @@ class NoteEditorController extends GetxController {
   void onInit() {
     super.onInit();
 
-    final dynamic argument = Get.arguments;
+    noteId = _readNoteId();
 
-    if (argument is! int) {
-      errorMessage.value = 'Invalid note ID.';
-      return;
-    }
-
-    noteId = argument;
-    loadNote();
+    /*
+     * GET NOTE DETAIL METHOD IS CALLED HERE.
+     */
+    getNoteDetail();
   }
 
-  Future<void> loadNote() async {
+  int _readNoteId() {
+    final dynamic arguments =
+        Get.arguments;
+
+    /*
+     * Supports:
+     *
+     * Get.toNamed(
+     *   AppRoutes.noteEditor,
+     *   arguments: 10,
+     * );
+     */
+    if (arguments is int &&
+        arguments > 0) {
+      return arguments;
+    }
+
+    /*
+     * Supports:
+     *
+     * Get.toNamed(
+     *   AppRoutes.noteEditor,
+     *   arguments: {
+     *     'noteId': 10,
+     *   },
+     * );
+     */
+    if (arguments is Map) {
+      final dynamic value =
+          arguments['noteId'] ??
+              arguments['id'];
+
+      final int? parsedId =
+      int.tryParse(
+        value?.toString() ?? '',
+      );
+
+      if (parsedId != null &&
+          parsedId > 0) {
+        return parsedId;
+      }
+    }
+
+    throw ArgumentError(
+      'A valid note ID was not provided.',
+    );
+  }
+
+  /*
+   * This method loads:
+   *
+   * GET /api/note/{id}
+   */
+  Future<void> getNoteDetail() async {
     try {
       isLoading.value = true;
       errorMessage.value = '';
 
-      final NoteEntity note =
-      await noteRepository.getNoteDetail(noteId);
+      final NoteEntity result =
+      await noteRepository.getNoteDetail(
+        noteId,
+      );
 
-      titleController.text = note.title;
-      blocks.assignAll(note.content);
+      note.value = result;
 
-      final Map<String, dynamic>? textBlock =
-      _firstTextBlock();
+      titleController.text =
+          result.title;
 
-      textController.text =
-          textBlock?['text']?.toString() ?? '';
+      statementController.text =
+          _extractTextContent(
+            result.content,
+          );
     } catch (error) {
-      errorMessage.value = error.toString();
+      errorMessage.value =
+          _cleanError(error);
     } finally {
       isLoading.value = false;
     }
   }
 
-  Future<void> saveNote() async {
+  /*
+   * Refresh method for pull-to-refresh or retry.
+   */
+  Future<void> reloadNote() {
+    return getNoteDetail();
+  }
+
+  /*
+   * Save edited title and statement.
+   *
+   * Existing attachment blocks are preserved.
+   */
+  Future<void> saveChanges() async {
+    FocusManager.instance.primaryFocus
+        ?.unfocus();
+
+    final String title =
+    titleController.text.trim();
+
+    final String statement =
+    statementController.text.trim();
+
+    if (title.isEmpty) {
+      errorMessage.value =
+      'Please enter a note title.';
+      return;
+    }
+
+    if (title.length > 250) {
+      errorMessage.value =
+      'The note title cannot exceed 250 characters.';
+      return;
+    }
+
     try {
       isSaving.value = true;
-
-      final String title =
-      titleController.text.trim();
-
-      final String text =
-      textController.text.trim();
-
-      final Map<String, dynamic>? currentTextBlock =
-      _firstTextBlock();
-
-      final String textBlockId =
-          currentTextBlock?['id']?.toString() ??
-              _uuid.v4();
+      errorMessage.value = '';
 
       final List<Map<String, dynamic>>
-      updatedBlocks = blocks
-          .where(
-            (Map<String, dynamic> item) =>
-        item['type'] != 'text',
-      )
-          .toList();
-
-      if (text.isNotEmpty) {
-        updatedBlocks.insert(0, {
-          'id': textBlockId,
-          'type': 'text',
-          'text': text,
-        });
-      }
-
-      blocks.assignAll(updatedBlocks);
+      updatedContent =
+      _buildUpdatedContent(
+        statement: statement,
+      );
 
       await noteRepository.saveContent(
-        noteId: noteId,
+        id: noteId,
         title: title,
-        content: blocks.toList(),
+        content: updatedContent,
       );
 
+      /*
+       * Reload from the server after saving.
+       */
+      await getNoteDetail();
+
+      if (homeController != null) {
+        await homeController!.loadAll();
+      }
+
       Get.snackbar(
-        'Saved',
-        'Your note was saved successfully.',
+        'Note saved',
+        'Your changes were saved successfully.',
+        snackPosition: SnackPosition.BOTTOM,
       );
     } catch (error) {
-      Get.snackbar(
-        'Save failed',
-        error.toString(),
-      );
+      errorMessage.value =
+          _cleanError(error);
     } finally {
       isSaving.value = false;
     }
   }
 
-  Future<void> uploadAttachment() async {
-    try {
-      final FilePickerResult? result =
-      await FilePicker.platform.pickFiles(
-        allowMultiple: false,
-        withData: false,
-      );
+  List<Map<String, dynamic>>
+  _buildUpdatedContent({
+    required String statement,
+  }) {
+    final List<Map<String, dynamic>>
+    originalContent =
+        note.value?.content
+            .map(
+              (
+              Map<String, dynamic>
+              block,
+              ) {
+            return Map<String, dynamic>.from(
+              block,
+            );
+          },
+        )
+            .toList() ??
+            <Map<String, dynamic>>[];
 
-      if (result == null || result.files.isEmpty) {
-        return;
-      }
+    /*
+     * Find the old text block so its ID can remain stable.
+     */
+    Map<String, dynamic>? oldTextBlock;
 
-      final PlatformFile file = result.files.single;
-
-      if (file.path == null) {
-        Get.snackbar(
-          'File error',
-          'The selected file does not have a path.',
-        );
-        return;
-      }
-
-      isSaving.value = true;
-
-      final String blockId = _uuid.v4();
-
-      final int attachmentId =
-      await noteRepository.uploadAttachment(
-        noteId: noteId,
-        filePath: file.path!,
-        fileName: file.name,
-        blockId: blockId,
-        displayOrder: blocks.length + 1,
-      );
-
-      blocks.add({
-        'id': blockId,
-        'type': 'attachment',
-        'attachmentId': attachmentId,
-        'displayName': file.name,
-      });
-
-      await noteRepository.saveContent(
-        noteId: noteId,
-        title: titleController.text.trim(),
-        content: blocks.toList(),
-      );
-
-      Get.snackbar(
-        'Uploaded',
-        '${file.name} was uploaded.',
-      );
-    } catch (error) {
-      Get.snackbar(
-        'Upload failed',
-        error.toString(),
-      );
-    } finally {
-      isSaving.value = false;
-    }
-  }
-
-  void removeAttachment(
-      Map<String, dynamic> block,
-      ) {
-    blocks.remove(block);
-  }
-
-  Map<String, dynamic>? _firstTextBlock() {
     for (final Map<String, dynamic> block
-    in blocks) {
-      if (block['type'] == 'text') {
-        return block;
+    in originalContent) {
+      final String type =
+          block['type']
+              ?.toString()
+              .trim()
+              .toLowerCase() ??
+              '';
+
+      if (type == 'text') {
+        oldTextBlock = block;
+        break;
       }
     }
 
-    return null;
+    /*
+     * Keep all non-text blocks such as images
+     * and attachments.
+     */
+    final List<Map<String, dynamic>>
+    nonTextBlocks =
+    originalContent.where(
+          (Map<String, dynamic> block) {
+        final String type =
+            block['type']
+                ?.toString()
+                .trim()
+                .toLowerCase() ??
+                '';
+
+        return type != 'text';
+      },
+    ).map(
+          (Map<String, dynamic> block) {
+        return Map<String, dynamic>.from(
+          block,
+        );
+      },
+    ).toList();
+
+    final List<Map<String, dynamic>> result =
+    <Map<String, dynamic>>[];
+
+    if (statement.isNotEmpty) {
+      final String textBlockId =
+          oldTextBlock?['id']?.toString() ??
+              'text-$noteId';
+
+      final String blockId =
+          oldTextBlock?['blockId']
+              ?.toString() ??
+              textBlockId;
+
+      result.add(
+        <String, dynamic>{
+          ...?oldTextBlock,
+          'id': textBlockId,
+          'blockId': blockId,
+          'type': 'text',
+          'text': statement,
+          'displayOrder': 1,
+        },
+      );
+    }
+
+    result.addAll(nonTextBlocks);
+
+    /*
+     * Reassign display order after updating content.
+     */
+    for (
+    int index = 0;
+    index < result.length;
+    index++
+    ) {
+      result[index]['displayOrder'] =
+          index + 1;
+    }
+
+    return result;
+  }
+
+  String _extractTextContent(
+      List<Map<String, dynamic>> content,
+      ) {
+    for (final Map<String, dynamic> block
+    in content) {
+      final String type =
+          block['type']
+              ?.toString()
+              .trim()
+              .toLowerCase() ??
+              '';
+
+      if (type == 'text') {
+        return block['text']
+            ?.toString() ??
+            '';
+      }
+    }
+
+    return '';
+  }
+
+  String _cleanError(
+      Object error,
+      ) {
+    return error
+        .toString()
+        .replaceFirst(
+      'ApiException: ',
+      '',
+    )
+        .replaceFirst(
+      'Exception: ',
+      '',
+    )
+        .trim();
   }
 
   @override
   void onClose() {
     titleController.dispose();
-    textController.dispose();
+    statementController.dispose();
+
     super.onClose();
   }
 }

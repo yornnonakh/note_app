@@ -68,5 +68,10 @@ abstract final class AppPages {
       page: () => const RecycleBinView(),
       binding: RecycleBinBinding(),
     ),
+    GetPage<dynamic>(
+      name: AppRoutes.createNote,
+      page: () => const CreateNoteView(),
+      binding: CreateNoteBinding(),
+    ),
   ];
 }
